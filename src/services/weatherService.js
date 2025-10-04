@@ -1,6 +1,11 @@
 const getGeoCoordinates = async (place) => {
   console.log(`🌍 Fetching real coordinates for: '${place}'`);
 
+  if (place.startsWith("coords:")) {
+    const [lat, lon] = place.replace("coords:", "").split(",").map(Number);
+    return { lat, lon, name: `Custom Coordinates`, notFound: false };
+  }
+
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}`
