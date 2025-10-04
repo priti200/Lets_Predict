@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
-import { Form, Button, Container, InputGroup, Row, Col } from 'react-bootstrap';
 
 // A simple microphone icon component
 const MicIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-    className="bi bi-mic-fill" viewBox="0 0 16 16">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
     <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
-    <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 
-      5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 
-      1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+    <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
   </svg>
 );
+
 
 const AIPrompt = ({ onSubmit }) => {
   const [inputMode, setInputMode] = useState('place'); // 'place' or 'coords'
@@ -52,91 +49,296 @@ const AIPrompt = ({ onSubmit }) => {
     }
   };
 
+  const inputStyle = {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    transition: 'all 0.3s ease',
+    outline: 'none',
+  };
+
+  const inputFocusStyle = {
+    border: '2px solid #667eea',
+    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+  };
+
+  const buttonStyle = {
+    padding: '0.75rem 1.5rem',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    width: '100%',
+    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+  };
+
+  const micButtonStyle = {
+    padding: '0.75rem',
+    background: '#f7fafc',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '48px',
+  };
+
+  const toggleButtonStyle = {
+    padding: '0.5rem 1rem',
+    background: '#f7fafc',
+    color: '#4a5568',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+  };
+
   return (
-    <Container className="my-3">
-      <Form onSubmit={handleSubmit}>
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <Form.Label as="h5">Input Mode</Form.Label>
-          <Button
-            variant="outline-primary"
-            size="sm"
+    <div style={{
+      background: 'white',
+      borderRadius: '20px',
+      padding: '2rem',
+      boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
+      marginBottom: '1.5rem',
+      margin: '1rem 0'
+    }}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '1.5rem' 
+        }}>
+          <h2 style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: '700',
+            color: '#2d3748',
+            margin: 0
+          }}>
+            📍 Input Mode
+          </h2>
+          <button
+            type="button"
+            style={toggleButtonStyle}
             onClick={() => setInputMode(prev => prev === 'place' ? 'coords' : 'place')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#edf2f7';
+              e.currentTarget.style.borderColor = '#cbd5e0';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#f7fafc';
+              e.currentTarget.style.borderColor = '#e2e8f0';
+            }}
           >
-            {inputMode === 'place' ? 'Switch to Coordinates' : 'Switch to Place Name'}
-          </Button>
+            {inputMode === 'place' ? '🌐 Switch to Coordinates' : '📌 Switch to Place Name'}
+          </button>
         </div>
 
         {inputMode === 'place' ? (
-          <Form.Group className="mb-3" controlId="formPlace">
-            <Form.Label>Place</Form.Label>
-            <InputGroup>
-              <Form.Control
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontWeight: '600',
+              color: '#4a5568',
+              fontSize: '0.95rem'
+            }}>
+              Place
+            </label>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <input
                 type="text"
                 placeholder="e.g., Yosemite National Park"
                 value={place}
                 onChange={(e) => setPlace(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={(e) => {
+                  e.target.style.border = '2px solid #e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
-              <Button variant="outline-secondary" onClick={() => handleVoiceInput(setPlace)}>
+              <button
+                type="button"
+                onClick={() => handleVoiceInput(setPlace)}
+                style={micButtonStyle}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#edf2f7';
+                  e.target.style.borderColor = '#cbd5e0';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f7fafc';
+                  e.target.style.borderColor = '#e2e8f0';
+                }}
+              >
                 <MicIcon />
-              </Button>
-            </InputGroup>
-          </Form.Group>
+              </button>
+            </div>
+          </div>
         ) : (
-          <Row className="mb-3">
-            <Col>
-              <Form.Label>Latitude</Form.Label>
-              <Form.Control
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '1rem',
+            marginBottom: '1.5rem' 
+          }}>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.5rem', 
+                fontWeight: '600',
+                color: '#4a5568',
+                fontSize: '0.95rem'
+              }}>
+                Latitude
+              </label>
+              <input
                 type="number"
                 placeholder="e.g., 11.2588"
                 value={latitude}
                 onChange={(e) => setLatitude(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={(e) => {
+                  e.target.style.border = '2px solid #e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
-            </Col>
-            <Col>
-              <Form.Label>Longitude</Form.Label>
-              <Form.Control
+            </div>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.5rem', 
+                fontWeight: '600',
+                color: '#4a5568',
+                fontSize: '0.95rem'
+              }}>
+                Longitude
+              </label>
+              <input
                 type="number"
                 placeholder="e.g., 75.7804"
                 value={longitude}
                 onChange={(e) => setLongitude(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={(e) => {
+                  e.target.style.border = '2px solid #e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
-            </Col>
-          </Row>
+            </div>
+          </div>
         )}
 
-        <Form.Group className="mb-3" controlId="formDate">
-          <Form.Label>Date</Form.Label>
-          <InputGroup>
-            <Form.Control
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '0.5rem', 
+            fontWeight: '600',
+            color: '#4a5568',
+            fontSize: '0.95rem'
+          }}>
+            📅 Date
+          </label>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <input
               type="text"
               placeholder="e.g., July 15-20"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              style={inputStyle}
+              onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+              onBlur={(e) => {
+                e.target.style.border = '2px solid #e2e8f0';
+                e.target.style.boxShadow = 'none';
+              }}
             />
-            <Button variant="outline-secondary" onClick={() => handleVoiceInput(setDate)}>
+            <button
+              type="button"
+              onClick={() => handleVoiceInput(setDate)}
+              style={micButtonStyle}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#edf2f7';
+                e.target.style.borderColor = '#cbd5e0';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#f7fafc';
+                e.target.style.borderColor = '#e2e8f0';
+              }}
+            >
               <MicIcon />
-            </Button>
-          </InputGroup>
-        </Form.Group>
+            </button>
+          </div>
+        </div>
 
-        <Form.Group className="mb-3" controlId="formPlans">
-          <Form.Label>Plans</Form.Label>
-          <InputGroup>
-            <Form.Control
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '0.5rem', 
+            fontWeight: '600',
+            color: '#4a5568',
+            fontSize: '0.95rem'
+          }}>
+            🎯 Plans
+          </label>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <input
               type="text"
               placeholder="e.g., Hiking and camping"
               value={plans}
               onChange={(e) => setPlans(e.target.value)}
+              style={inputStyle}
+              onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+              onBlur={(e) => {
+                e.target.style.border = '2px solid #e2e8f0';
+                e.target.style.boxShadow = 'none';
+              }}
             />
-            <Button variant="outline-secondary" onClick={() => handleVoiceInput(setPlans)}>
+            <button
+              type="button"
+              onClick={() => handleVoiceInput(setPlans)}
+              style={micButtonStyle}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#edf2f7';
+                e.target.style.borderColor = '#cbd5e0';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#f7fafc';
+                e.target.style.borderColor = '#e2e8f0';
+              }}
+            >
               <MicIcon />
-            </Button>
-          </InputGroup>
-        </Form.Group>
+            </button>
+          </div>
+        </div>
 
-        <Button variant="primary" type="submit">Get AI Analysis</Button>
-      </Form>
-    </Container>
+        <button
+          type="submit"
+          style={buttonStyle}
+          onMouseEnter={(e) => {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+          }}
+        >
+          🤖 Get AI Analysis
+        </button>
+      </form>
+    </div>
   );
 };
 
