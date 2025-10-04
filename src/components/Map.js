@@ -48,7 +48,7 @@ const MapComponent = ({ position: externalPosition }) => {
   }, [externalPosition]);
 
   return (
-    <Map
+    <ReactMapGL
       {...viewState}
       ref={mapRef}
       onMove={evt => setViewState(evt.viewState)}
@@ -57,7 +57,7 @@ const MapComponent = ({ position: externalPosition }) => {
       mapboxAccessToken={MAPBOX_TOKEN}
     >
         <Marker longitude={viewState.longitude} latitude={viewState.latitude} color="red" />
-    </Map>
+    </ReactMapGL>
   );
 };
 
