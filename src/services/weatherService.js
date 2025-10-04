@@ -1,11 +1,42 @@
 const getGeoCoordinates = async (place) => {
-    console.log(`AGENT ACTION: Geocoding the place: '${place}'. In a real app, this would call an API like Nominatim.`);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-    if (place.toLowerCase().includes('yosemite')) {
-        return { lat: 37.8651, lon: -119.5383, name: 'Yosemite National Park' };
+  console.log(`🌍 Fetching real coordinates for: '${place}'`);
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}`
+    );
+    const data = await response.json();
+
+    if (data.length === 0) {
+      console.warn(`⚠️ No results found for: ${place}`);
+      return {
+        lat: 11.2588,
+        lon: 75.7804,
+        name: null, // indicates "not found"
+        notFound: true,
+      };
     }
-    return { lat: 11.2588, lon: 75.7804, name: 'Calicut, India' }; // Default
+
+    const { lat, lon, display_name } = data[0];
+    console.log(`✅ Found location: ${display_name} (${lat}, ${lon})`);
+
+    return {
+      lat: parseFloat(lat),
+      lon: parseFloat(lon),
+      name: display_name,
+      notFound: false,
+    };
+  } catch (error) {
+    console.error("❌ Geocoding error:", error);
+    return {
+      lat: 11.2588,
+      lon: 75.7804,
+      name: null,
+      notFound: true,
+    };
+  }
 };
+
 
 const getHistoricalWeatherData = async (lat, lon, date) => {
     console.log(`AGENT ACTION: Fetching historical weather data from NASA APIs for ${lat}, ${lon} around ${date}.`);
@@ -62,18 +93,25 @@ const getAIAnalysis = async (weatherData) => {
 };
 
 export const getWeatherAnalysis = async (place, date, plans) => {
-    const placeInfo = await getGeoCoordinates(place);
-    const weatherData = await getHistoricalWeatherData(placeInfo.lat, placeInfo.lon, date);
-    
-    // Combine all info for the AI model
-    const comprehensiveData = {
-        ...weatherData,
-        name: placeInfo.name,
-        date: date,
-        plans: plans,
-        coordinates: { lat: placeInfo.lat, lon: placeInfo.lon }
-    };
+  const placeInfo = await getGeoCoordinates(place);
 
-    const result = await getAIAnalysis(comprehensiveData);
-    return result;
+  if (placeInfo.notFound) {
+    return {
+      analysisText: `⚠️ Could not find the location **"${place}"** in global datasets. Showing fallback location (Calicut, India) on the map.\n\nPlease try a different name or include more details (e.g., "Paris, France" instead of "Paris").`,
+      coordinates: { lat: placeInfo.lat, lon: placeInfo.lon },
+    };
+  }
+
+  const weatherData = await getHistoricalWeatherData(placeInfo.lat, placeInfo.lon, date);
+
+  const comprehensiveData = {
+    ...weatherData,
+    name: placeInfo.name,
+    date: date,
+    plans: plans,
+    coordinates: { lat: placeInfo.lat, lon: placeInfo.lon },
+  };
+
+  const result = await getAIAnalysis(comprehensiveData);
+  return result;
 };
