@@ -1,23 +1,53 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import { Container, Row, Col, Spinner } from 'react-bootstrap';
+import Header from './components/Header';
+import AIPrompt from './components/AIPrompt';
+import Map from './components/Map';
+import Dashboard from './components/Dashboard';
+import { getWeatherAnalysis } from './services/weatherService';
 
 function App() {
+  const [analysis, setAnalysis] = useState(null);
+  const [coordinates, setCoordinates] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handlePromptSubmit = async ({ place, date, plans }) => {
+    if (!place || !date || !plans) {
+      alert('Please provide a place, date, and your plans.');
+      return;
+    }
+    setLoading(true);
+    const result = await getWeatherAnalysis(place, date, plans);
+    setAnalysis(result.analysisText);
+    setCoordinates([result.coordinates.lat, result.coordinates.lon]);
+    setLoading(false);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <Header />
+      <Container fluid>
+        <Row>
+          <Col lg={4} md={12} className="mb-3">
+            <AIPrompt onSubmit={handlePromptSubmit} />
+            {loading ? (
+              <div className="text-center">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </Spinner>
+                <p>Analyzing historical data...</p>
+              </div>
+            ) : (
+              <Dashboard analysis={analysis} />
+            )}
+          </Col>
+          <Col lg={8} md={12}>
+            <div style={{height: '80vh'}}>
+              <Map position={coordinates} />
+            </div>
+          </Col>
+        </Row>
+      </Container>
     </div>
   );
 }
