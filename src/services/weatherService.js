@@ -1,41 +1,32 @@
 const getGeoCoordinates = async (place) => {
-  console.log(`🌍 Fetching real coordinates for: '${place}'`);
-
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}`
-    );
-    const data = await response.json();
-
-    if (data.length === 0) {
-      console.warn(`⚠️ No results found for: ${place}`);
-      return {
-        lat: 11.2588,
-        lon: 75.7804,
-        name: null, // indicates "not found"
-        notFound: true,
-      };
+    // Check if user provided coordinates directly
+    if (place.startsWith('coords:')) {
+        const [lat, lon] = place.replace('coords:', '').split(',').map(parseFloat);
+        if (isNaN(lat) || isNaN(lon)) throw new Error("Invalid coordinates provided.");
+        return { lat, lon, name: `Lat ${lat.toFixed(2)}, Lon ${lon.toFixed(2)}` };
     }
 
-    const { lat, lon, display_name } = data[0];
-    console.log(`✅ Found location: ${display_name} (${lat}, ${lon})`);
+    console.log(`AGENT ACTION: Geocoding the place: '${place}'.`);
+    const token = process.env.REACT_APP_MAPBOX_API_KEY;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(place)}.json?access_token=${token}`;
 
-    return {
-      lat: parseFloat(lat),
-      lon: parseFloat(lon),
-      name: display_name,
-      notFound: false,
-    };
-  } catch (error) {
-    console.error("❌ Geocoding error:", error);
-    return {
-      lat: 11.2588,
-      lon: 75.7804,
-      name: null,
-      notFound: true,
-    };
-  }
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.features && data.features.length > 0) {
+            const [lon, lat] = data.features[0].geometry.coordinates;
+            return { lat, lon, name: data.features[0].place_name };
+        } else {
+            console.warn(`No match found for '${place}', defaulting to Calicut.`);
+            return { lat: 11.2588, lon: 75.7804, name: 'Calicut, India (default)' };
+        }
+    } catch (error) {
+        console.error("Geocoding error:", error);
+        return { lat: 11.2588, lon: 75.7804, name: 'Calicut, India (fallback)' };
+    }
 };
+
 
 
 const getHistoricalWeatherData = async (lat, lon, date) => {
