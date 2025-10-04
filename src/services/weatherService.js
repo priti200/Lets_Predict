@@ -1,7 +1,34 @@
 const getGeoCoordinates = async (place) => {
-    console.log(`AGENT ACTION: Geocoding the place: '${place}'. In a real app, this would call an API like Nominatim.`);
+    console.log(`AGENT ACTION: Geocoding the place: '${place}'. Attempting Mapbox forward geocoding using REACT_APP_MAPBOX_API_KEY from .env.`);
+    // Try to use Mapbox forward geocoding if an API key is available
+    const token = process.env.REACT_APP_MAPBOX_API_KEY;
+    if (token && place && place.trim().length > 0) {
+        try {
+            const query = encodeURIComponent(place);
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.features && data.features.length > 0) {
+                    const feat = data.features[0];
+                    const [lon, lat] = feat.center;
+                    const name = feat.place_name;
+                    console.log(`Mapbox geocode success: ${name} -> ${lat}, ${lon}`);
+                    return { lat, lon, name };
+                }
+            } else {
+                console.warn('Mapbox geocoding returned non-OK response', res.status);
+            }
+        } catch (err) {
+            console.warn('Mapbox geocoding failed:', err.message || err);
+        }
+    } else {
+        console.log('No Mapbox token found or empty place; falling back to local mock behavior.');
+    }
+
+    // Fallback/mock behavior (original behavior)
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-    if (place.toLowerCase().includes('yosemite')) {
+    if (place && place.toLowerCase().includes('yosemite')) {
         return { lat: 37.8651, lon: -119.5383, name: 'Yosemite National Park' };
     }
     return { lat: 11.2588, lon: 75.7804, name: 'Calicut, India' }; // Default
