@@ -29,7 +29,7 @@ function App() {
     }
     setLoading(true);
     const result = await getWeatherAnalysis(place, date, plans);
-    setAnalysis(result.analysisText);
+    setAnalysis(result);
     setCoordinates([result.coordinates.lat, result.coordinates.lon]);
     setLoading(false);
     setShowResult(true);
