@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 // A simple microphone icon component
 const MicIcon = () => (
@@ -8,7 +8,6 @@ const MicIcon = () => (
   </svg>
 );
 
-
 const AIPrompt = ({ onSubmit }) => {
   const [inputMode, setInputMode] = useState('place'); // 'place' or 'coords'
   const [place, setPlace] = useState('');
@@ -17,10 +16,15 @@ const AIPrompt = ({ onSubmit }) => {
   const [date, setDate] = useState('');
   const [plans, setPlans] = useState('');
 
+  const wrapperRef = useRef(null);
+  const placeRef = useRef(null);
+  const coordsRef = useRef(null);
+  const [panelHeight, setPanelHeight] = useState(null);
+
   const handleVoiceInput = (setter) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Sorry, your browser does not support speech recognition.");
+      alert('Sorry, your browser does not support speech recognition.');
       return;
     }
     const recognition = new SpeechRecognition();
@@ -32,311 +36,147 @@ const AIPrompt = ({ onSubmit }) => {
     recognition.start();
   };
 
+  useEffect(() => {
+    const measure = () => {
+      const h1 = placeRef.current ? placeRef.current.scrollHeight : 0;
+      const h2 = coordsRef.current ? coordsRef.current.scrollHeight : 0;
+      // choose the visible panel height to avoid a fixed large gap
+      const visible = inputMode === 'place' ? h1 : h2;
+      const fallback = Math.max(h1, h2, 160);
+      const heightToUse = visible || fallback;
+      setPanelHeight(heightToUse);
+    };
+    // measure after render
+    const t = setTimeout(measure, 30);
+    window.addEventListener('resize', measure);
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure); };
+  }, [inputMode]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (inputMode === 'place') {
       onSubmit({ place, date, plans });
     } else {
       if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-        alert("Please enter valid latitude and longitude.");
+        alert('Please enter valid latitude and longitude.');
         return;
       }
-      onSubmit({
-        place: `coords:${latitude},${longitude}`, // special format
-        date,
-        plans
-      });
+      onSubmit({ place: `coords:${latitude},${longitude}`, date, plans });
     }
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem 1rem',
-    border: '2px solid #e2e8f0',
-    borderRadius: '12px',
-    fontSize: '1rem',
-    transition: 'all 0.3s ease',
-    outline: 'none',
-  };
-
-  const inputFocusStyle = {
-    border: '2px solid #667eea',
-    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
-  };
-
-  const buttonStyle = {
-    padding: '0.75rem 1.5rem',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    width: '100%',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
-  };
-
-  const micButtonStyle = {
-    padding: '0.75rem',
-    background: '#f7fafc',
-    border: '2px solid #e2e8f0',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '48px',
-  };
-
-  const toggleButtonStyle = {
-    padding: '0.5rem 1rem',
-    background: '#f7fafc',
-    color: '#4a5568',
-    border: '2px solid #e2e8f0',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    fontSize: '0.85rem',
-    fontWeight: '600',
-  };
-
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '20px',
-      padding: '2rem',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-      marginBottom: '1.5rem',
-      margin: '1rem 0'
-    }}>
+    <div className="panel-card mb-24">
       <form onSubmit={handleSubmit}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '1.5rem' 
-        }}>
-          <h2 style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: '700',
-            color: '#2d3748',
-            margin: 0
-          }}>
-            📍 Input Mode
-          </h2>
+        <div className="section-heading">
+          <h2 className="section-title">📍 Input Mode</h2>
           <button
             type="button"
-            style={toggleButtonStyle}
-            onClick={() => setInputMode(prev => prev === 'place' ? 'coords' : 'place')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#edf2f7';
-              e.currentTarget.style.borderColor = '#cbd5e0';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#f7fafc';
-              e.currentTarget.style.borderColor = '#e2e8f0';
-            }}
+            className={`button-secondary ${inputMode === 'coords' ? 'active' : ''}`}
+            onClick={() => setInputMode((prev) => (prev === 'place' ? 'coords' : 'place'))}
+            aria-pressed={inputMode === 'coords'}
           >
             {inputMode === 'place' ? '🌐 Switch to Coordinates' : '📌 Switch to Place Name'}
+            <span className="switch-icon">↺</span>
           </button>
         </div>
 
-        {inputMode === 'place' ? (
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: '600',
-              color: '#4a5568',
-              fontSize: '0.95rem'
-            }}>
-              Place
-            </label>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <input
-                type="text"
-                placeholder="e.g., Yosemite National Park"
-                value={place}
-                onChange={(e) => setPlace(e.target.value)}
-                style={inputStyle}
-                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={(e) => {
-                  e.target.style.border = '2px solid #e2e8f0';
-                  e.target.style.boxShadow = 'none';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => handleVoiceInput(setPlace)}
-                style={micButtonStyle}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#edf2f7';
-                  e.target.style.borderColor = '#cbd5e0';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = '#f7fafc';
-                  e.target.style.borderColor = '#e2e8f0';
-                }}
-              >
-                <MicIcon />
-              </button>
+        <div className="input-panels-wrapper" ref={wrapperRef} style={{ height: panelHeight ? `${panelHeight}px` : 'auto' }}>
+          <div ref={placeRef} className={`input-panel ${inputMode === 'place' ? 'visible' : ''}`} aria-hidden={inputMode !== 'place'}>
+            <div className="mb-24">
+              <label className="field-label">📍 Place</label>
+              <div className="inline-input-row">
+                <input
+                  type="text"
+                  placeholder="e.g., Yosemite National Park"
+                  value={place}
+                  onChange={(e) => setPlace(e.target.value)}
+                  className="field-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleVoiceInput(setPlace)}
+                  className="mic-button"
+                  aria-label="Voice input for place"
+                  title="Voice input for place"
+                >
+                  <MicIcon />
+                </button>
+              </div>
             </div>
           </div>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '1rem',
-            marginBottom: '1.5rem' 
-          }}>
-            <div>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '0.5rem', 
-                fontWeight: '600',
-                color: '#4a5568',
-                fontSize: '0.95rem'
-              }}>
-                Latitude
-              </label>
-              <input
-                type="number"
-                placeholder="e.g., 11.2588"
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-                style={inputStyle}
-                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={(e) => {
-                  e.target.style.border = '2px solid #e2e8f0';
-                  e.target.style.boxShadow = 'none';
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '0.5rem', 
-                fontWeight: '600',
-                color: '#4a5568',
-                fontSize: '0.95rem'
-              }}>
-                Longitude
-              </label>
-              <input
-                type="number"
-                placeholder="e.g., 75.7804"
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                style={inputStyle}
-                onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={(e) => {
-                  e.target.style.border = '2px solid #e2e8f0';
-                  e.target.style.boxShadow = 'none';
-                }}
-              />
-            </div>
-          </div>
-        )}
 
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ 
-            display: 'block', 
-            marginBottom: '0.5rem', 
-            fontWeight: '600',
-            color: '#4a5568',
-            fontSize: '0.95rem'
-          }}>
-            📅 Date
-          </label>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div ref={coordsRef} className={`input-panel ${inputMode === 'coords' ? 'visible' : ''}`} aria-hidden={inputMode !== 'coords'}>
+            <div className="grid-2 mb-24">
+              <div>
+                <label className="field-label">Latitude</label>
+                <input
+                  type="number"
+                  placeholder="e.g., 11.2588"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className="field-input"
+                />
+              </div>
+              <div>
+                <label className="field-label">Longitude</label>
+                <input
+                  type="number"
+                  placeholder="e.g., 75.7804"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className="field-input"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-24">
+          <label className="field-label">📅 Date</label>
+          <div className="inline-input-row">
             <input
               type="text"
               placeholder="e.g., July 15-20"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
-              onBlur={(e) => {
-                e.target.style.border = '2px solid #e2e8f0';
-                e.target.style.boxShadow = 'none';
-              }}
+              className="field-input"
             />
             <button
               type="button"
               onClick={() => handleVoiceInput(setDate)}
-              style={micButtonStyle}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#edf2f7';
-                e.target.style.borderColor = '#cbd5e0';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = '#f7fafc';
-                e.target.style.borderColor = '#e2e8f0';
-              }}
+              className="mic-button"
+              aria-label="Voice input for date"
+              title="Voice input for date"
             >
               <MicIcon />
             </button>
           </div>
         </div>
 
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ 
-            display: 'block', 
-            marginBottom: '0.5rem', 
-            fontWeight: '600',
-            color: '#4a5568',
-            fontSize: '0.95rem'
-          }}>
-            🎯 Plans
-          </label>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="mb-24">
+          <label className="field-label">🎯 Plans</label>
+          <div className="inline-input-row">
             <input
               type="text"
               placeholder="e.g., Hiking and camping"
               value={plans}
               onChange={(e) => setPlans(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
-              onBlur={(e) => {
-                e.target.style.border = '2px solid #e2e8f0';
-                e.target.style.boxShadow = 'none';
-              }}
+              className="field-input"
             />
             <button
               type="button"
               onClick={() => handleVoiceInput(setPlans)}
-              style={micButtonStyle}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#edf2f7';
-                e.target.style.borderColor = '#cbd5e0';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = '#f7fafc';
-                e.target.style.borderColor = '#e2e8f0';
-              }}
+              className="mic-button"
+              aria-label="Voice input for plans"
+              title="Voice input for plans"
             >
               <MicIcon />
             </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          style={buttonStyle}
-          onMouseEnter={(e) => {
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
-          }}
-        >
-          🤖 Get AI Analysis
-        </button>
+        <button type="submit" className="button-primary">🤖 Get AI Analysis</button>
       </form>
     </div>
   );

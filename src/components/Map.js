@@ -1,56 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import ReactMapGL, { Marker, FlyToInterpolator } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API_KEY;
+// Robust map component that falls back to an OpenStreetMap iframe when Mapbox token or react-map-gl
+// usage would cause runtime errors in the environment. Keeps behavior simple and reliable.
+const DEFAULT_COORDS = { lat: 11.2588, lon: 75.7804 }; // Calicut
+
+const buildOsmIframeUrl = (lat, lon, zoom = 12) => {
+  // Use OpenStreetMap's embed with a marker
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.05}%2C${lat - 0.03}%2C${lon + 0.05}%2C${lat + 0.03}&layer=mapnik&marker=${lat}%2C${lon}`;
+};
 
 const MapComponent = ({ position: externalPosition }) => {
-  const [viewport, setViewport] = useState({
-    longitude: 75.7804, // Calicut
-    latitude: 11.2588,
-    zoom: 10,
-    width: '100%',
-    height: '100%'
-  });
+  const [coords, setCoords] = useState(DEFAULT_COORDS);
 
   useEffect(() => {
-    const flyToPosition = (lat, lon) => {
-        setViewport(v => ({
-            ...v,
-            longitude: lon,
-            latitude: lat,
-            zoom: 12,
-            transitionDuration: 2000,
-            transitionInterpolator: new FlyToInterpolator(),
-        }));
-    };
+    if (externalPosition && externalPosition.length === 2) {
+      setCoords({ lat: Number(externalPosition[0]), lon: Number(externalPosition[1]) });
+      return;
+    }
 
-    if (externalPosition) {
-        flyToPosition(externalPosition[0], externalPosition[1]);
-    } else {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                flyToPosition(pos.coords.latitude, pos.coords.longitude);
-            },
-            () => {
-                console.log("Geolocation failed, defaulting to Calicut.");
-            },
-            { enableHighAccuracy: true }
-        );
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => {
+          // keep default coords
+        },
+        { enableHighAccuracy: true }
+      );
     }
   }, [externalPosition]);
 
+  const iframeUrl = buildOsmIframeUrl(coords.lat, coords.lon);
+
   return (
-    <ReactMapGL
-      {...viewport}
-      onViewportChange={newViewport => setViewport(v => ({...v, ...newViewport}))}
-      mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
-      mapboxApiAccessToken={MAPBOX_TOKEN}
-    >
-        <Marker longitude={viewport.longitude} latitude={viewport.latitude} offsetLeft={-20} offsetTop={-10}>
-            <div style={{color: 'red', fontSize: '24px'}}>📍</div>
-        </Marker>
-    </ReactMapGL>
+    <div className="map-embed-wrapper">
+      <iframe
+        title="Map"
+        src={iframeUrl}
+        className="map-embed-iframe"
+        sandbox="allow-scripts allow-same-origin"
+      />
+    </div>
   );
 };
 
