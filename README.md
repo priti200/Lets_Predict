@@ -90,16 +90,9 @@ This method is transparent, reproducible, and well-suited for communicating risk
 
 Team GeoClima — Hackathon entry
 
-- Lead dev: Priti
-- UX & testing: Saketh
-- Data engineer: Jyoth
+- Lead dev: Priti Gupta
+- UX & testing: Saketh SudhirKumar Krishnapai
+- Data engineer: Avishek Rauniyar
 
 This project was built for the NASA Earth Observation challenge and uses openly licensed NASA data products and Mapbox for map display. See the `src/services/weatherService.js` file for pointers to the data integration code and links to the NASA data portals.
 
-## License
-
-MIT
-
----
-
-If you'd like a short project one-pager (single-slide summary) or a tailored demo script for the hackathon judges, I can generate one next.
