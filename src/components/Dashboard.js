@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import DataSources from './DataSources';
 import WeatherChart from './WeatherChart';
 import DataSummary from './DataSummary';
@@ -6,16 +7,15 @@ import ComfortIndex from './ComfortIndex';
 
 const Dashboard = ({ analysis }) => {
   const handleDownload = () => {
+    if (!analysis || !analysis.weatherData || !analysis.weatherData.realTime) {
+      return;
+    }
     const data = {
-      analysis,
-      weatherData: {
-        temp: [10, 15, 20, 18, 22],
-        humidity: [80, 75, 70, 72, 68],
-        wind: [5, 6, 7, 6, 8],
-      },
+      analysis: analysis.analysisText,
+      weatherData: analysis.weatherData,
       comfortIndex: {
-        temp: 20,
-        humidity: 70,
+        temp: analysis.weatherData.realTime.temp,
+        humidity: analysis.weatherData.realTime.humidity,
       }
     };
     const json = JSON.stringify(data, null, 2);
@@ -29,69 +29,30 @@ const Dashboard = ({ analysis }) => {
   };
 
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '20px',
-      padding: '2rem',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-      minHeight: '300px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ fontSize: '1.5rem' }}>🤖</div>
-          <h2 style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: '700',
-            color: '#2d3748',
-            margin: 0
-          }}>
-            AI Climate Analysis
-          </h2>
+    <div className="card">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex align-items-center">
+          <div className="h1 me-3">🤖</div>
+          <h2 className="h5 mb-0">AI Climate Analysis</h2>
         </div>
         {analysis && <button onClick={handleDownload} className="btn btn-primary">Download Data</button>}
       </div>
       
-      {analysis ? (
+      {analysis && analysis.weatherData && analysis.weatherData.realTime ? (
         <div>
-          <div style={{ 
-            color: '#4a5568',
-            lineHeight: '1.8',
-            fontSize: '0.95rem'
-          }}>
-            <pre style={{ 
-              whiteSpace: 'pre-wrap', 
-              fontFamily: 'inherit',
-              margin: 0,
-              background: '#f7fafc',
-              padding: '1.5rem',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0'
-            }}>
-              {analysis}
-            </pre>
+          <div className="mb-4">
+            <ReactMarkdown>
+              {analysis.analysisText}
+            </ReactMarkdown>
           </div>
-          <WeatherChart data={{
-            temp: [10, 15, 20, 18, 22],
-            humidity: [80, 75, 70, 72, 68],
-            wind: [5, 6, 7, 6, 8],
-          }} />
-          <DataSummary data={{
-            temp: [10, 15, 20, 18, 22],
-            humidity: [80, 75, 70, 72, 68],
-            wind: [5, 6, 7, 6, 8],
-          }} />
-          <ComfortIndex temp={20} humidity={70} />
+          <WeatherChart data={analysis.weatherData} />
+          <DataSummary data={analysis.weatherData} />
+          <ComfortIndex temp={analysis.weatherData.realTime.temp} humidity={analysis.weatherData.realTime.humidity} />
         </div>
       ) : (
-        <div style={{
-          textAlign: 'center',
-          padding: '3rem 1rem',
-          color: '#718096'
-        }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🌤️</div>
-          <p style={{ fontSize: '1rem', lineHeight: '1.6', margin: 0 }}>
-            Your personalized weather analysis, precautions, and packing list will appear here once you submit a query.
-          </p>
+        <div className="text-center p-5 text-muted">
+          <div className="h1 mb-3">🌤️</div>
+          <p className="lead">Your personalized weather analysis, precautions, and packing list will appear here once you submit a query.</p>
         </div>
       )}
       <DataSources />

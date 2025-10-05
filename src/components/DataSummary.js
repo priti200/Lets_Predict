@@ -14,6 +14,10 @@ const DataSummary = ({ data }) => {
     return Math.sqrt(avgSquareDiff);
   };
 
+  if (!data || !data.temp || !data.humidity || !data.wind) {
+    return null;
+  }
+
   const stats = {
     temp: {
       mean: calculateMean(data.temp).toFixed(2),

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Spinner } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
 import Header from './components/Header';
 import AIPrompt from './components/AIPrompt';
 import Map from './components/Map';
 import Dashboard from './components/Dashboard';
+import SkeletonLoader from './components/SkeletonLoader';
 import { getWeatherAnalysis } from './services/weatherService';
 
 function App() {
@@ -18,7 +19,7 @@ function App() {
     }
     setLoading(true);
     const result = await getWeatherAnalysis(place, date, plans);
-    setAnalysis(result.analysisText);
+    setAnalysis(result);
     setCoordinates([result.coordinates.lat, result.coordinates.lon]);
     setLoading(false);
   };
@@ -31,12 +32,7 @@ function App() {
           <Col lg={4} md={12} className="mb-3">
             <AIPrompt onSubmit={handlePromptSubmit} />
             {loading ? (
-              <div className="text-center">
-                <Spinner animation="border" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </Spinner>
-                <p>Analyzing historical data...</p>
-              </div>
+              <SkeletonLoader />
             ) : (
               <Dashboard analysis={analysis} />
             )}

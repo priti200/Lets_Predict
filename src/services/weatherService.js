@@ -92,21 +92,61 @@ const getWeatherData = async (lat, lon, date) => {
         console.error("Error fetching real-time weather data:", error);
     }
 
+    // Fetch historical weather data from NASA POWER API
+    const nasaApiKey = process.env.REACT_APP_EARTHDATA_TOKEN;
+    const today = new Date();
+    const year = today.getFullYear() - 1; // Use last year for historical data
+    const [month, days] = date.split(' ');
+    const [startDay, endDay] = days.split('-').map(d => parseInt(d, 10));
+    const startDate = `${year}${String(new Date(Date.parse(month +" 1, 2012")).getMonth() + 1).padStart(2, '0')}${String(startDay).padStart(2, '0')}`;
+    const endDate = `${year}${String(new Date(Date.parse(month +" 1, 2012")).getMonth() + 1).padStart(2, '0')}${String(endDay).padStart(2, '0')}`;
 
-    // Fetch historical weather data from NASA APIs (mocked)
-    console.log(`-> Would query NASA POWER API for point-specific data (temperature, precipitation).`);
-    console.log(`-> Would query NASA Giovanni API for area-averaged data (wind, humidity).`);
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-    const historicalData = {
+    const nasaPowerUrl = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,RH2M,WS10M,PRECTOTCORR&community=RE&longitude=${lon}&latitude=${lat}&start=${startDate}&end=${endDate}&format=JSON&api_key=${nasaApiKey}`;
+
+    let historicalData = {
         probabilities: {
-            extremeHeat: Math.random() * 0.5,
-            heavyRain: Math.random() * 0.6,
-            highWinds: Math.random() * 0.4,
+            extremeHeat: 0,
+            heavyRain: 0,
+            highWinds: 0,
         },
         trends: {
-            temp_increase_percent: (Math.random() * 10).toFixed(2),
+            temp_increase_percent: 0,
         }
     };
+
+    try {
+        const res = await fetch(nasaPowerUrl);
+        if (res.ok) {
+            const data = await res.json();
+            const temp_data = data.properties.parameter.T2M;
+            const humidity_data = data.properties.parameter.RH2M;
+            const wind_data = data.properties.parameter.WS10M;
+            const rain_data = data.properties.parameter.PRECTOTCORR;
+
+            const extremeHeatDays = Object.values(temp_data).filter(t => t > 35).length;
+            const heavyRainDays = Object.values(rain_data).filter(r => r > 10).length;
+            const highWindsDays = Object.values(wind_data).filter(w => w > 15).length;
+            const totalDays = Object.values(temp_data).length;
+
+            historicalData.probabilities.extremeHeat = extremeHeatDays / totalDays;
+            historicalData.probabilities.heavyRain = heavyRainDays / totalDays;
+            historicalData.probabilities.highWinds = highWindsDays / totalDays;
+
+            const first_day_temp = Object.values(temp_data)[0];
+            const last_day_temp = Object.values(temp_data)[totalDays - 1];
+            historicalData.trends.temp_increase_percent = ((last_day_temp - first_day_temp) / first_day_temp * 100).toFixed(2);
+
+            historicalData.temp = Object.values(temp_data);
+historicalData.humidity = Object.values(data.properties.parameter.RH2M);
+            historicalData.wind = Object.values(wind_data);
+
+            console.log("✅ Historical weather data fetched and processed successfully.");
+        } else {
+            console.warn("NASA POWER API returned non-OK response", res.status);
+        }
+    } catch (error) {
+        console.error("Error fetching historical weather data:", error);
+    }
 
     return {
         ...historicalData,
@@ -125,7 +165,10 @@ const getAIAnalysis = async (weatherData) => {
     const { plans } = weatherData;
     const { temp, humidity, windSpeed, description } = weatherData.realTime;
 
-    const prompt = `### AI Weather & Activity Analysis for ${weatherData.name} (${weatherData.date})
+    const prompt = `You are a helpful AI assistant that provides weather analysis and recommendations.
+Generate a response in Markdown format.
+
+### AI Weather & Activity Analysis for ${weatherData.name} (${weatherData.date})
 
 **Current Weather:**
 - Temperature: ${temp}°C
@@ -141,10 +184,19 @@ Based on historical data from NASA's Earth observation satellites, the climate t
 - Moderate risk of heavy rain: ${(heavyRain * 100).toFixed(0)}% probability.
 - Elevated risk of high winds: ${(highWinds * 100).toFixed(0)}% probability.
 
-**Analysis for Your Plans: '${plans}'**
+---
 
-**Suggested Packing List:**
+### Analysis for Your Plans: '${plans}'
+
+Provide a detailed analysis of the weather conditions and how they might affect the user's plans.
+Include recommendations and precautions.
+
+### Suggested Packing List
+
+Provide a packing list as a Markdown checklist.
 `;
+
+    console.log("Prompt:", prompt);
 
     try {
         const model = genAI.getGenerativeModel({ model: "gemma-3n-e2b-it"});
@@ -152,15 +204,19 @@ Based on historical data from NASA's Earth observation satellites, the climate t
         const response = await result.response;
         const text = response.text();
 
+        console.log("Response text:", text);
+
         return { 
             analysisText: text, 
-            coordinates: weatherData.coordinates 
+            coordinates: weatherData.coordinates, 
+            weatherData: weatherData 
         };
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         return {
             analysisText: "Error generating AI analysis.",
-            coordinates: weatherData.coordinates
+            coordinates: weatherData.coordinates,
+            weatherData: weatherData
         };
     }
 };
