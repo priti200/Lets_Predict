@@ -1,70 +1,105 @@
-# Getting Started with Create React App
+# GeoClima AI — Historical Weather Probability Planner
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+GeoClima AI helps outdoor planners and event organizers make data-driven decisions by answering: "What is the probability of adverse weather (very hot, very cold, very wet, very windy, or very uncomfortable) at this place and time of year?"
 
-## Available Scripts
+The app combines geocoding, historical Earth observation data, and explainable statistical scoring to produce concise probabilities, visualization-ready statistics, and downloadable data products. It was built as a focused, extensible hackathon MVP designed to be demonstrable and reproducible.
 
-In the project directory, you can run:
+Key ideas that guided the design:
+- Make queries personal: allow users to choose a point or name a place and specify a date or calendar-day range.
+- Be explainable: compute empirical probabilities from historical data (percentiles, counts, trends) rather than returning opaque model outputs.
+- Keep results shareable and reproducible: every output includes basic metadata (variable units, source link, query bounding info) and can be exported as CSV/JSON.
 
-### `npm start`
+## Live demo / Pitch
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+For a quick demo, open the app in your browser, enter a place (e.g., "Yosemite National Park"), pick a date range (e.g., "Aug 10-12"), and submit. The app will:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Resolve the place to coordinates and center the map.
+- Fetch historical observations for the selected calendar days and compute event probabilities (e.g., P(max temp &gt; 90°F)).
+- Return a short action-oriented summary, numeric probabilities for the chosen variables, and downloadable CSV/JSON containing the raw subset and metadata.
 
-### `npm test`
+This workflow supports quick, defensible decisions (e.g., "65% chance of very hot conditions — bring extra water and shade").
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Features (MVP)
 
-### `npm run build`
+- Place input: typed or voice-entered place, resolved with Mapbox forward geocoding.
+- Map: fly-to resolved coordinates and show a pin; map supports future pin-drop/polygon selection.
+- Data pipeline: modular `weatherService` that will fetch historical daily data and compute empirical statistics and probabilities.
+- Analysis: human-readable summary with numeric probabilities for core event types (heat, cold, precipitation, wind, combined discomfort).
+- Exports: CSV and JSON export of the subset, metadata, and computed metrics (ready for further analysis).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Data provenance
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Planned and supported data sources:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- NASA POWER (POWER Data Access Viewer) — global climatology and solar/meteorological variables.
+- NASA Giovanni / GES DISC — gridded satellite reanalysis (MERRA-2, GPM) for richer variables and region-averaged queries.
+- Open‑Meteo — quick, no-key historical daily/hourly data suitable for fast prototyping.
 
-### `npm run eject`
+Every exported data product contains the source name, variable units, and the query parameters used so results are reproducible and auditable.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Tech stack
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- Frontend: React (Create React App), React Bootstrap for UI components
+- Mapping: Mapbox (via `react-map-gl`) for geocoding and base maps
+- Charting: Chart.js / `react-chartjs-2` for probability distributions and time series
+- Data layer: `src/services/weatherService.js` (modular service for geocoding, historical retrieval, scoring)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Note: for hackathon delivery we prioritized a client-first architecture to allow quick demos. If server-side auth or heavy processing is required, the `weatherService` module is easy to extract into a lightweight Node/Flask proxy service.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Installation (for judges & reviewers)
 
-## Learn More
+1. Clone the repository and install dependencies:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```powershell
+git clone https://github.com/priti200/Lets_Predict.git
+cd Lets_Predict
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+2. Add your Mapbox token (public) to a `.env` file in the project root:
 
-### Code Splitting
+```properties
+REACT_APP_MAPBOX_API_KEY=pk.YOUR_MAPBOX_TOKEN
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+3. Run the app locally:
 
-### Analyzing the Bundle Size
+```powershell
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Open http://localhost:3000 in your browser.
 
-### Making a Progressive Web App
+## How the scoring works (brief)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. For the requested location (point or area) and calendar day(s), fetch historical daily values for the last N years.
+2. For each variable (temperature, precipitation, wind), compute a distribution of historical values for those calendar days.
+3. Define event thresholds (configurable): e.g., very hot &gt; 90°F or &gt; 90th percentile for that day.
+4. Probability = fraction of historical samples exceeding the threshold. Also compute basic trends (recent decade vs baseline).
 
-### Advanced Configuration
+This method is transparent, reproducible, and well-suited for communicating risk to non-experts.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Roadmap & next steps
 
-### Deployment
+- Integrate NASA Giovanni and POWER APIs for richer climate products and area-averaging.
+- Add interactive map tools: click-to-pin, polygon drawing for area averages, and multi-point event planners.
+- Add downloadable visualizations and automated report generation (PDF).
+- Harden with server-side caching/proxy for large query workloads and to support NASA Earthdata authenticated services.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Team & credits
 
-### `npm run build` fails to minify
+Team GeoClima — Hackathon entry
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Lead dev: Priti
+- UX & testing: Saketh
+- Data engineer: Jyoth
+
+This project was built for the NASA Earth Observation challenge and uses openly licensed NASA data products and Mapbox for map display. See the `src/services/weatherService.js` file for pointers to the data integration code and links to the NASA data portals.
+
+## License
+
+MIT
+
+---
+
+If you'd like a short project one-pager (single-slide summary) or a tailored demo script for the hackathon judges, I can generate one next.
