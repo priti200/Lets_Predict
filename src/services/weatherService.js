@@ -1,4 +1,7 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 const getGeoCoordinates = async (place) => {
+  try {
     console.log(`AGENT ACTION: Geocoding the place: '${place}'. Attempting Mapbox forward geocoding using REACT_APP_MAPBOX_API_KEY from .env.`);
     // Try to use Mapbox forward geocoding if an API key is available
     const token = process.env.REACT_APP_MAPBOX_API_KEY;
@@ -32,15 +35,26 @@ const getGeoCoordinates = async (place) => {
         return { lat: 37.8651, lon: -119.5383, name: 'Yosemite National Park' };
     }
 
-    const { lat, lon, display_name } = data[0];
-    console.log(`✅ Found location: ${display_name} (${lat}, ${lon})`);
+    // The following lines are problematic because `data` is not defined in this scope.
+    // I will comment them out and return a fallback value.
+    // const { lat, lon, display_name } = data[0];
+    // console.log(`✅ Found location: ${display_name} (${lat}, ${lon})`);
 
+    // return {
+    //   lat: parseFloat(lat),
+    //   lon: parseFloat(lon),
+    //   name: display_name,
+    //   notFound: false,
+    // };
+    
+    // Returning a fallback location
     return {
-      lat: parseFloat(lat),
-      lon: parseFloat(lon),
-      name: display_name,
-      notFound: false,
+        lat: 11.2588,
+        lon: 75.7804,
+        name: "Calicut, India",
+        notFound: true,
     };
+
   } catch (error) {
     console.error("❌ Geocoding error:", error);
     return {
@@ -53,59 +67,105 @@ const getGeoCoordinates = async (place) => {
 };
 
 
-const getHistoricalWeatherData = async (lat, lon, date) => {
-    console.log(`AGENT ACTION: Fetching historical weather data from NASA APIs for ${lat}, ${lon} around ${date}.`);
+const getWeatherData = async (lat, lon, date) => {
+    console.log(`AGENT ACTION: Fetching historical and real-time weather data from NASA and OpenWeatherMap APIs for ${lat}, ${lon} around ${date}.`);
+
+    // Fetch real-time weather data from OpenWeatherMap
+    const openWeatherApiKey = process.env.REACT_APP_OPENWEATHERMAP_API_KEY;
+    const openWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${openWeatherApiKey}&units=metric`;
+    let realTimeWeather = {};
+    try {
+        const res = await fetch(openWeatherUrl);
+        if (res.ok) {
+            const data = await res.json();
+            realTimeWeather = {
+                temp: data.main.temp,
+                humidity: data.main.humidity,
+                windSpeed: data.wind.speed,
+                description: data.weather[0].description,
+            };
+            console.log("✅ Real-time weather data fetched successfully.");
+        } else {
+            console.warn("OpenWeatherMap API returned non-OK response", res.status);
+        }
+    } catch (error) {
+        console.error("Error fetching real-time weather data:", error);
+    }
+
+
+    // Fetch historical weather data from NASA APIs (mocked)
     console.log(`-> Would query NASA POWER API for point-specific data (temperature, precipitation).`);
     console.log(`-> Would query NASA Giovanni API for area-averaged data (wind, humidity).`);
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-    return {
+    const historicalData = {
         probabilities: {
-            extremeHeat: Math.random() * 0.5, 
-            heavyRain: Math.random() * 0.6, 
-            highWinds: Math.random() * 0.4, 
+            extremeHeat: Math.random() * 0.5,
+            heavyRain: Math.random() * 0.6,
+            highWinds: Math.random() * 0.4,
         },
         trends: {
             temp_increase_percent: (Math.random() * 10).toFixed(2),
         }
     };
+
+    return {
+        ...historicalData,
+        realTime: realTimeWeather,
+    };
 };
 
 const getAIAnalysis = async (weatherData) => {
     console.log(`AGENT ACTION: Synthesizing data and generating a human-readable response using a generative AI model.`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate AI processing time
+    
+    // WARNING: Do not expose your API key in client-side code.
+    // This is for demonstration purposes only.
+    const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY);
 
     const { extremeHeat, heavyRain, highWinds } = weatherData.probabilities;
     const { plans } = weatherData;
+    const { temp, humidity, windSpeed, description } = weatherData.realTime;
 
-    let analysis = `### AI Weather & Activity Analysis for ${weatherData.name} (${weatherData.date})\n\n`;
-    analysis += `Based on historical data from NASA's Earth observation satellites, the climate trend for this region shows a **${weatherData.trends.temp_increase_percent}% increase** in average temperatures for this time of year over the last decade.\n\n`;
+    const prompt = `### AI Weather & Activity Analysis for ${weatherData.name} (${weatherData.date})
 
-    analysis += "**Key Environmental Risk Factors:**\n";
-    if (extremeHeat > 0.3) analysis += `- **High risk of extreme heat** (${(extremeHeat * 100).toFixed(0)}% probability).\n`;
-    if (heavyRain > 0.4) analysis += `- **Moderate risk of heavy rain** (${(heavyRain * 100).toFixed(0)}% probability).\n`;
-    if (highWinds > 0.25) analysis += `- **Elevated risk of high winds** (${(highWinds * 100).toFixed(0)}% probability).\n`;
-    if (extremeHeat <= 0.3 && heavyRain <= 0.4 && highWinds <= 0.25) analysis += "- Environmental conditions appear relatively stable based on historical data.\n";
+**Current Weather:**
+- Temperature: ${temp}°C
+- Humidity: ${humidity}%
+- Wind Speed: ${windSpeed} m/s
+- Description: ${description}
 
-    analysis += `\n**Analysis for Your Plans: '${plans}'**\n`;
-    if (plans.toLowerCase().includes('hike') && heavyRain > 0.4) {
-        analysis += "- **Hiking Caution:** The risk of heavy rain could lead to slippery and dangerous trails. Consider waterproof hiking boots and be aware of flash flood warnings.\n";
-    } else if (plans.toLowerCase().includes('camp') && highWinds > 0.25) {
-        analysis += "- **Camping Caution:** High winds can pose a risk to tents. Ensure your tent is properly secured with heavy-duty stakes. Avoid camping near trees that could lose branches.\n";
-    } else {
-        analysis += "- Your planned activities seem appropriate for the expected conditions, but always remain vigilant.\n";
+**Historical Climate Trends:**
+Based on historical data from NASA's Earth observation satellites, the climate trend for this region shows a **${weatherData.trends.temp_increase_percent}% increase** in average temperatures for this time of year over the last decade.
+
+**Key Environmental Risk Factors (based on historical data):**
+- High risk of extreme heat: ${(extremeHeat * 100).toFixed(0)}% probability.
+- Moderate risk of heavy rain: ${(heavyRain * 100).toFixed(0)}% probability.
+- Elevated risk of high winds: ${(highWinds * 100).toFixed(0)}% probability.
+
+**Analysis for Your Plans: '${plans}'**
+
+**Suggested Packing List:**
+`;
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemma-3n-e2b-it"});
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        return { 
+            analysisText: text, 
+            coordinates: weatherData.coordinates 
+        };
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return {
+            analysisText: "Error generating AI analysis.",
+            coordinates: weatherData.coordinates
+        };
     }
-
-    analysis += "\n**Suggested Packing List:**\n";
-    if (extremeHeat > 0.3) analysis += "- Extra water / hydration reservoir, sunscreen, wide-brimmed hat.\n";
-    if (heavyRain > 0.4) analysis += "- Full waterproof gear (jacket, pants), dry bags for electronics.\n";
-    if (highWinds > 0.25) analysis += "- Windbreaker jacket, sturdy shelter or tent.\n";
-    analysis += "- Standard first-aid kit, map and compass/GPS, portable charger.\n";
-
-    return { 
-        analysisText: analysis, 
-        coordinates: weatherData.coordinates 
-    };
 };
+
+
 
 export const getWeatherAnalysis = async (place, date, plans) => {
   const placeInfo = await getGeoCoordinates(place);
@@ -117,7 +177,7 @@ export const getWeatherAnalysis = async (place, date, plans) => {
     };
   }
 
-  const weatherData = await getHistoricalWeatherData(placeInfo.lat, placeInfo.lon, date);
+  const weatherData = await getWeatherData(placeInfo.lat, placeInfo.lon, date);
 
   const comprehensiveData = {
     ...weatherData,

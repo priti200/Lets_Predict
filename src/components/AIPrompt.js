@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import Map, { Marker } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // A simple microphone icon component
 const MicIcon = () => (
@@ -12,10 +14,15 @@ const MicIcon = () => (
 const AIPrompt = ({ onSubmit }) => {
   const [inputMode, setInputMode] = useState('place'); // 'place' or 'coords'
   const [place, setPlace] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [latitude, setLatitude] = useState(37.7577);
+  const [longitude, setLongitude] = useState(-122.4376);
   const [date, setDate] = useState('');
   const [plans, setPlans] = useState('');
+  const [viewport, setViewport] = useState({
+    latitude: 37.7577,
+    longitude: -122.4376,
+    zoom: 8
+  });
 
   const handleVoiceInput = (setter) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -46,6 +53,44 @@ const AIPrompt = ({ onSubmit }) => {
         date,
         plans
       });
+    }
+  };
+
+  const onMarkerDragEnd = useCallback(event => {
+    const { lng, lat } = event.lngLat;
+    setLongitude(lng);
+    setLatitude(lat);
+    reverseGeocode(lng, lat);
+  }, []);
+
+  const geocode = async () => {
+    const token = process.env.REACT_APP_MAPBOX_API_KEY;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(place)}.json?access_token=${token}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.features.length > 0) {
+        const { center } = data.features[0];
+        setLongitude(center[0]);
+        setLatitude(center[1]);
+        setViewport(prev => ({ ...prev, longitude: center[0], latitude: center[1] }));
+      }
+    } catch (error) {
+      console.error("Error geocoding:", error);
+    }
+  };
+
+  const reverseGeocode = async (lng, lat) => {
+    const token = process.env.REACT_APP_MAPBOX_API_KEY;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.features.length > 0) {
+        setPlace(data.features[0].place_name);
+      }
+    } catch (error) {
+      console.error("Error reverse geocoding:", error);
     }
   };
 
@@ -168,6 +213,7 @@ const AIPrompt = ({ onSubmit }) => {
                   e.target.style.boxShadow = 'none';
                 }}
               />
+              <button type="button" onClick={geocode} style={micButtonStyle}>Search</button>
               <button
                 type="button"
                 onClick={() => handleVoiceInput(setPlace)}
@@ -240,6 +286,17 @@ const AIPrompt = ({ onSubmit }) => {
             </div>
           </div>
         )}
+
+        <div style={{height: '400px', marginBottom: '1.5rem'}}>
+          <Map
+            {...viewport}
+            onMove={evt => setViewport(evt.viewState)}
+            mapboxAccessToken={process.env.REACT_APP_MAPBOX_API_KEY}
+            mapStyle="mapbox://styles/mapbox/streets-v11"
+          >
+            <Marker longitude={longitude} latitude={latitude} anchor="bottom" draggable onDragEnd={onMarkerDragEnd} />
+          </Map>
+        </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ 
