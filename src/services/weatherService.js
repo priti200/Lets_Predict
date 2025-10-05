@@ -1,38 +1,45 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const getGeoCoordinates = async (place) => {
-  console.log(`🌍 Fetching real coordinates for: '${place}'`);
-
-  if (place.startsWith("coords:")) {
-    const [lat, lon] = place.replace("coords:", "").split(",").map(Number);
-    return { lat, lon, name: `Custom Coordinates`, notFound: false };
-  }
-
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}`
-    );
-    const data = await response.json();
-
-    if (data.length === 0) {
-      console.warn(`⚠️ No results found for: ${place}`);
-      return {
-        lat: 11.2588,
-        lon: 75.7804,
-        name: null,
-        notFound: true,
-      };
+    console.log(`AGENT ACTION: Geocoding the place: '${place}'. Attempting Mapbox forward geocoding using REACT_APP_MAPBOX_API_KEY from .env.`);
+    const token = process.env.REACT_APP_MAPBOX_API_KEY;
+    if (token && place && place.trim().length > 0) {
+        try {
+            const query = encodeURIComponent(place);
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.features && data.features.length > 0) {
+                    const feat = data.features[0];
+                    const [lon, lat] = feat.center;
+                    const name = feat.place_name;
+                    console.log(`Mapbox geocode success: ${name} -> ${lat}, ${lon}`);
+                    return { lat, lon, name };
+                }
+            } else {
+                console.warn('Mapbox geocoding returned non-OK response', res.status);
+            }
+        } catch (err) {
+            console.warn('Mapbox geocoding failed:', err.message || err);
+        }
+    } else {
+        console.log('No Mapbox token found or empty place; falling back to local mock behavior.');
     }
 
-    const { lat, lon, display_name } = data[0];
-    console.log(`✅ Found location: ${display_name} (${lat}, ${lon})`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    if (place && place.toLowerCase().includes('yosemite')) {
+        return { lat: 37.8651, lon: -119.5383, name: 'Yosemite National Park' };
+    }
 
     return {
-      lat: parseFloat(lat),
-      lon: parseFloat(lon),
-      name: display_name,
-      notFound: false,
+        lat: 11.2588,
+        lon: 75.7804,
+        name: "Calicut, India",
+        notFound: true,
     };
+
   } catch (error) {
     console.error("❌ Geocoding error:", error);
     return {
@@ -44,219 +51,143 @@ const getGeoCoordinates = async (place) => {
   }
 };
 
-const getHistoricalWeatherData = async (lat, lon, date) => {
-  console.log(`📡 Fetching historical weather data from NASA POWER API for ${lat}, ${lon} around ${date}`);
+const getWeatherData = async (lat, lon, date) => {
+    console.log(`AGENT ACTION: Fetching historical and real-time weather data from NASA and OpenWeatherMap APIs for ${lat}, ${lon} around ${date}.`);
 
-  try {
-    // Parse the date input (e.g., "July 15-20")
-    const today = new Date();
-    const year = today.getFullYear() - 1; // Use last year for historical data
-    
-    // Extract month and days from the date string
-    const [monthStr, daysStr] = date.split(' ');
-    const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 
-                        'july', 'august', 'september', 'october', 'november', 'december'];
-    const monthIndex = monthNames.findIndex(m => m.startsWith(monthStr.toLowerCase().substring(0, 3)));
-    const month = monthIndex !== -1 ? monthIndex + 1 : 7; // Default to July if parsing fails
-    
-    const [startDay, endDay] = daysStr ? daysStr.split('-').map(d => parseInt(d, 10)) : [15, 20];
-    
-    // Format dates as YYYYMMDD
-    const startDate = `${year}${String(month).padStart(2, '0')}${String(startDay).padStart(2, '0')}`;
-    const endDate = `${year}${String(month).padStart(2, '0')}${String(endDay || startDay).padStart(2, '0')}`;
-
-    // NASA POWER API endpoint
-    const nasaPowerUrl = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,RH2M,WS10M,PRECTOTCORR&community=RE&longitude=${lon}&latitude=${lat}&start=${startDate}&end=${endDate}&format=JSON`;
-
-    console.log(`🛰️ Requesting NASA POWER data: ${startDate} to ${endDate}`);
-
-    const response = await fetch(nasaPowerUrl);
-    
-    if (!response.ok) {
-      console.warn(`⚠️ NASA POWER API returned status ${response.status}`);
-      throw new Error(`NASA POWER API error: ${response.status}`);
+    const openWeatherApiKey = process.env.REACT_APP_OPENWEATHERMAP_API_KEY;
+    const openWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${openWeatherApiKey}&units=metric`;
+    let realTimeWeather = {};
+    try {
+        const res = await fetch(openWeatherUrl);
+        if (res.ok) {
+            const data = await res.json();
+            realTimeWeather = {
+                temp: data.main.temp,
+                humidity: data.main.humidity,
+                windSpeed: data.wind.speed,
+                description: data.weather[0].description,
+            };
+            console.log("✅ Real-time weather data fetched successfully.");
+        } else {
+            console.warn("OpenWeatherMap API returned non-OK response", res.status);
+        }
+    } catch (error) {
+        console.error("Error fetching real-time weather data:", error);
     }
 
-    const data = await response.json();
-    
-    // Extract parameter data
-    const temp_data = data.properties.parameter.T2M;
-    const humidity_data = data.properties.parameter.RH2M;
-    const wind_data = data.properties.parameter.WS10M;
-    const rain_data = data.properties.parameter.PRECTOTCORR;
+    const nasaApiKey = process.env.REACT_APP_EARTHDATA_TOKEN;
+    const today = new Date();
+    const year = today.getFullYear() - 1;
+    const [month, days] = date.split(' ');
+    const [startDay, endDay] = days.split('-').map(d => parseInt(d, 10));
+    const startDate = `${year}${String(new Date(Date.parse(month +" 1, 2012")).getMonth() + 1).padStart(2, '0')}${String(startDay).padStart(2, '0')}`;
+    const endDate = `${year}${String(new Date(Date.parse(month +" 1, 2012")).getMonth() + 1).padStart(2, '0')}${String(endDay).padStart(2, '0')}`;
 
-    // Calculate probabilities based on historical data
-    const temp_values = Object.values(temp_data);
-    const rain_values = Object.values(rain_data);
-    const wind_values = Object.values(wind_data);
-    const totalDays = temp_values.length;
+    const nasaPowerUrl = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,RH2M,WS10M,PRECTOTCORR&community=RE&longitude=${lon}&latitude=${lat}&start=${startDate}&end=${endDate}&format=JSON&api_key=${nasaApiKey}`;
 
-    const extremeHeatDays = temp_values.filter(t => t > 35).length;
-    const heavyRainDays = rain_values.filter(r => r > 10).length;
-    const highWindsDays = wind_values.filter(w => w > 15).length;
-
-    const probabilities = {
-      extremeHeat: extremeHeatDays / totalDays,
-      heavyRain: heavyRainDays / totalDays,
-      highWinds: highWindsDays / totalDays,
+    let historicalData = {
+        probabilities: {
+            extremeHeat: 0,
+            heavyRain: 0,
+            highWinds: 0,
+        },
+        trends: {
+            temp_increase_percent: 0,
+        }
     };
 
-    // Calculate temperature trend
-    const first_day_temp = temp_values[0];
-    const last_day_temp = temp_values[temp_values.length - 1];
-    const temp_increase_percent = ((last_day_temp - first_day_temp) / first_day_temp * 100).toFixed(2);
+    try {
+        const res = await fetch(nasaPowerUrl);
+        if (res.ok) {
+            const data = await res.json();
+            const temp_data = data.properties.parameter.T2M;
+            const humidity_data = data.properties.parameter.RH2M;
+            const wind_data = data.properties.parameter.WS10M;
+            const rain_data = data.properties.parameter.PRECTOTCORR;
 
-    // Calculate averages for current conditions
-    const avgTemp = (temp_values.reduce((a, b) => a + b, 0) / totalDays).toFixed(1);
-    const avgHumidity = (Object.values(humidity_data).reduce((a, b) => a + b, 0) / totalDays).toFixed(1);
-    const avgWind = (wind_values.reduce((a, b) => a + b, 0) / totalDays).toFixed(1);
+            const extremeHeatDays = Object.values(temp_data).filter(t => t > 35).length;
+            const heavyRainDays = Object.values(rain_data).filter(r => r > 10).length;
+            const highWindsDays = Object.values(wind_data).filter(w => w > 15).length;
+            const totalDays = Object.values(temp_data).length;
 
-    console.log(`✅ NASA POWER data retrieved: ${totalDays} days of historical data`);
+            historicalData.probabilities.extremeHeat = extremeHeatDays / totalDays;
+            historicalData.probabilities.heavyRain = heavyRainDays / totalDays;
+            historicalData.probabilities.highWinds = highWindsDays / totalDays;
+
+            const first_day_temp = Object.values(temp_data)[0];
+            const last_day_temp = Object.values(temp_data)[totalDays - 1];
+            historicalData.trends.temp_increase_percent = ((last_day_temp - first_day_temp) / first_day_temp * 100).toFixed(2);
+
+            historicalData.temp = Object.values(temp_data);
+            historicalData.humidity = Object.values(humidity_data);
+            historicalData.wind = Object.values(wind_data);
+
+            console.log("✅ Historical weather data fetched and processed successfully.");
+        } else {
+            console.warn("NASA POWER API returned non-OK response", res.status);
+        }
+    } catch (error) {
+        console.error("Error fetching historical weather data:", error);
+    }
 
     return {
-      probabilities,
-      trends: {
-        temp_increase_percent,
-      },
-      averages: {
-        temp: avgTemp,
-        humidity: avgHumidity,
-        wind: avgWind,
-      },
-      rawData: {
-        temp: temp_values,
-        humidity: Object.values(humidity_data),
-        wind: wind_values,
-        rain: rain_values,
-      }
+        ...historicalData,
+        realTime: realTimeWeather,
     };
-
-  } catch (error) {
-    console.error("❌ Error fetching NASA POWER data:", error);
-    
-    // Fallback to simulated data if API fails
-    console.log("⚠️ Using fallback simulated data");
-    return {
-      probabilities: {
-        extremeHeat: Math.random() * 0.5,
-        heavyRain: Math.random() * 0.6,
-        highWinds: Math.random() * 0.4,
-      },
-      trends: {
-        temp_increase_percent: (Math.random() * 10).toFixed(2),
-      },
-      averages: {
-        temp: (20 + Math.random() * 15).toFixed(1),
-        humidity: (50 + Math.random() * 30).toFixed(1),
-        wind: (5 + Math.random() * 10).toFixed(1),
-      }
-    };
-  }
 };
 
 const getAIAnalysis = async (weatherData) => {
-  console.log(`🤖 Generating AI analysis using Google Gemini...`);
-
-  try {
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+    console.log(`AGENT ACTION: Synthesizing data and generating a human-readable response using a generative AI model.`);
     
-    if (!apiKey) {
-      console.warn("⚠️ No Gemini API key found, using fallback analysis");
-      return generateFallbackAnalysis(weatherData);
+    const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY);
+
+    const { heavyRain } = weatherData.probabilities;
+    const { plans } = weatherData;
+    const { temp, windSpeed } = weatherData.realTime;
+
+    const prompt = `You are a helpful AI assistant that provides brief, actionable weather analysis.
+
+Generate a CONCISE response in Markdown format for ${weatherData.name} on ${weatherData.date}.
+
+**Format your response exactly like this:**
+
+### Weather Snapshot
+**Temperature:** ${temp}°C → [Pick ONE: Too Cold / Cold / Mild / Warm / Hot / Too Hot]
+
+**Wind:** ${windSpeed} m/s → [Pick ONE: Calm / Mild Breeze / Windy / Too Windy]
+
+**Rain:** ${(heavyRain * 100).toFixed(0)}% chance → [Pick ONE: Dry / Light Rain / Heavy Rain / Stormy]
+
+### Quick Take for "${plans}"
+Write ONE brief paragraph (2-3 sentences) about:
+- Whether conditions are good/challenging for these plans
+- Main safety concern if any (mention this only if there's a real risk)
+
+Keep the entire response under 100 words. Be direct and practical.`;
+
+    console.log("Prompt:", prompt);
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemma-3n-e2b-it"});
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        console.log("Response text:", text);
+
+        return { 
+            analysisText: text, 
+            coordinates: weatherData.coordinates, 
+            weatherData: weatherData 
+        };
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return {
+            analysisText: "Error generating AI analysis.",
+            coordinates: weatherData.coordinates,
+            weatherData: weatherData
+        };
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemma-3n-e2b-it" });
-
-    const { extremeHeat, heavyRain, highWinds } = weatherData.probabilities;
-    const { plans, name, date } = weatherData;
-    const { temp, humidity, wind } = weatherData.averages || {};
-
-    const prompt = `You are a helpful AI weather analyst. Generate a detailed weather and activity analysis in markdown format.
-
-Location: ${name}
-Date Range: ${date}
-User's Plans: ${plans}
-
-Historical Climate Data (from NASA satellites):
-- Average Temperature: ${temp}°C
-- Average Humidity: ${humidity}%
-- Average Wind Speed: ${wind} m/s
-- Temperature Trend: ${weatherData.trends.temp_increase_percent}% change over the period
-- Extreme Heat Probability: ${(extremeHeat * 100).toFixed(0)}%
-- Heavy Rain Probability: ${(heavyRain * 100).toFixed(0)}%
-- High Winds Probability: ${(highWinds * 100).toFixed(0)}%
-
-Please provide:
-1. A brief overview of the climate conditions
-2. Specific analysis of how these conditions affect the user's plans: "${plans}"
-3. Key precautions and recommendations
-4. A practical packing list (as a markdown checklist)
-
-Keep the response concise, practical, and focused on actionable advice.`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("✅ AI analysis generated successfully");
-
-    return {
-      analysisText: text,
-      coordinates: weatherData.coordinates
-    };
-
-  } catch (error) {
-    console.error("❌ Error calling Gemini API:", error);
-    return generateFallbackAnalysis(weatherData);
-  }
-};
-
-const generateFallbackAnalysis = (weatherData) => {
-  const { extremeHeat, heavyRain, highWinds } = weatherData.probabilities;
-  const { plans, name, date } = weatherData;
-  const { temp, humidity, wind } = weatherData.averages || {};
-
-  let analysis = `### AI Weather & Activity Analysis for ${name} (${date})\n\n`;
-  
-  if (temp && humidity && wind) {
-    analysis += `**Current Conditions (Historical Average):**\n`;
-    analysis += `- Temperature: ${temp}°C\n`;
-    analysis += `- Humidity: ${humidity}%\n`;
-    analysis += `- Wind Speed: ${wind} m/s\n\n`;
-  }
-
-  analysis += `Based on historical data from NASA's Earth observation satellites, the climate trend for this region shows a **${weatherData.trends.temp_increase_percent}% temperature change** for this time of year.\n\n`;
-
-  analysis += "**Key Environmental Risk Factors:**\n";
-  if (extremeHeat > 0.3) analysis += `- **High risk of extreme heat** (${(extremeHeat * 100).toFixed(0)}% probability)\n`;
-  if (heavyRain > 0.4) analysis += `- **Moderate risk of heavy rain** (${(heavyRain * 100).toFixed(0)}% probability)\n`;
-  if (highWinds > 0.25) analysis += `- **Elevated risk of high winds** (${(highWinds * 100).toFixed(0)}% probability)\n`;
-  if (extremeHeat <= 0.3 && heavyRain <= 0.4 && highWinds <= 0.25) {
-    analysis += "- Environmental conditions appear relatively stable based on historical data\n";
-  }
-
-  analysis += `\n**Analysis for Your Plans: '${plans}'**\n`;
-  if (plans.toLowerCase().includes('hik') && heavyRain > 0.4) {
-    analysis += "- **Hiking Caution:** Risk of heavy rain could lead to slippery trails. Consider waterproof boots and monitor flash flood warnings\n";
-  } else if (plans.toLowerCase().includes('camp') && highWinds > 0.25) {
-    analysis += "- **Camping Caution:** High winds pose a risk to tents. Ensure proper securing with heavy-duty stakes\n";
-  } else if (plans.toLowerCase().includes('beach') && extremeHeat > 0.3) {
-    analysis += "- **Beach Advisory:** High heat risk. Plan for early morning or late afternoon activities, stay hydrated\n";
-  } else {
-    analysis += "- Your planned activities appear suitable for expected conditions, but remain vigilant\n";
-  }
-
-  analysis += "\n**Suggested Packing List:**\n";
-  if (extremeHeat > 0.3) analysis += "- Extra water/hydration reservoir\n- Sunscreen (SPF 50+)\n- Wide-brimmed hat\n";
-  if (heavyRain > 0.4) analysis += "- Waterproof jacket and pants\n- Dry bags for electronics\n- Extra socks\n";
-  if (highWinds > 0.25) analysis += "- Windbreaker jacket\n- Sturdy tent/shelter\n";
-  analysis += "- First-aid kit\n- Map and GPS device\n- Portable charger\n";
-
-  return {
-    analysisText: analysis,
-    coordinates: weatherData.coordinates
-  };
 };
 
 export const getWeatherAnalysis = async (place, date, plans) => {
@@ -269,7 +200,7 @@ export const getWeatherAnalysis = async (place, date, plans) => {
     };
   }
 
-  const weatherData = await getHistoricalWeatherData(placeInfo.lat, placeInfo.lon, date);
+  const weatherData = await getWeatherData(placeInfo.lat, placeInfo.lon, date);
 
   const comprehensiveData = {
     ...weatherData,
