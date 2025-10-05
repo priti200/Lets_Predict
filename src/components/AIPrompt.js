@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Map, { Marker } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // A simple microphone icon component
 const MicIcon = () => (
@@ -11,10 +13,15 @@ const MicIcon = () => (
 const AIPrompt = ({ onSubmit }) => {
   const [inputMode, setInputMode] = useState('place'); // 'place' or 'coords'
   const [place, setPlace] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [latitude, setLatitude] = useState(37.7577);
+  const [longitude, setLongitude] = useState(-122.4376);
   const [date, setDate] = useState('');
   const [plans, setPlans] = useState('');
+  const [viewport, setViewport] = useState({
+    latitude: 37.7577,
+    longitude: -122.4376,
+    zoom: 8
+  });
 
   const wrapperRef = useRef(null);
   const placeRef = useRef(null);
@@ -137,6 +144,7 @@ const AIPrompt = ({ onSubmit }) => {
           <div className="inline-input-row">
             <input
               type="text"
+              className="form-control"
               placeholder="e.g., July 15-20"
               value={date}
               onChange={(e) => setDate(e.target.value)}
@@ -159,6 +167,7 @@ const AIPrompt = ({ onSubmit }) => {
           <div className="inline-input-row">
             <input
               type="text"
+              className="form-control"
               placeholder="e.g., Hiking and camping"
               value={plans}
               onChange={(e) => setPlans(e.target.value)}

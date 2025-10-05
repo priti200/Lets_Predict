@@ -178,6 +178,7 @@ const Dashboard = ({ analysis, onBack }) => {
           </p>
         </div>
       )}
+      <DataSources />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import AIPrompt from './components/AIPrompt';
 import Map from './components/Map';
 import Dashboard from './components/Dashboard';
 import Footer from './components/Footer';
+import SkeletonLoader from './components/SkeletonLoader';
 import { getWeatherAnalysis } from './services/weatherService';
 
 function App() {
@@ -29,7 +30,7 @@ function App() {
     }
     setLoading(true);
     const result = await getWeatherAnalysis(place, date, plans);
-    setAnalysis(result.analysisText);
+    setAnalysis(result);
     setCoordinates([result.coordinates.lat, result.coordinates.lon]);
     setLoading(false);
     setShowResult(true);
