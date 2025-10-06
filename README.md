@@ -10,7 +10,7 @@ Key ideas that guided the design:
 - Keep results shareable and reproducible: every output includes basic metadata (variable units, source link, query bounding info) and can be exported as CSV/JSON.
 
 ## Live demo / Pitch 
-[Live Demo 🌎](https://lets-predict-bzkpvqsbq-priti200s-projects.vercel.app/)
+[Live Demo 🌎](https://lets-predict.vercel.app/)
 
 For a quick demo, open the app in your browser, enter a place (e.g., "Yosemite National Park"), pick a date range (e.g., "Aug 10-12"), and submit. The app will:
 
